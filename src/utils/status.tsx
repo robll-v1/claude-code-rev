@@ -220,9 +220,14 @@ export function buildAccountProperties(): Property[] {
     });
   }
   if (accountInfo.apiKeySource) {
+    const apiKeySource =
+      accountInfo.apiKeySource === 'ANTHROPIC_API_KEY' &&
+      getActiveProviderConfig().apiKeyEnv
+        ? getActiveProviderConfig().apiKeyEnv
+        : accountInfo.apiKeySource
     properties.push({
       label: 'API key',
-      value: accountInfo.apiKeySource
+      value: apiKeySource
     });
   }
 

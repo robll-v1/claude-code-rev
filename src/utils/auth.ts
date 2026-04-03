@@ -185,8 +185,14 @@ export function getAuthTokenSource() {
     return { source: 'none' as const, hasToken: false }
   }
 
-  if (isOpenAICompatibleProviderActive() && getConfiguredProviderAuthToken()) {
-    return { source: 'providerAuthToken' as const, hasToken: true }
+  if (isOpenAICompatibleProviderActive()) {
+    if (getConfiguredProviderAuthToken()) {
+      return { source: 'providerAuthToken' as const, hasToken: true }
+    }
+
+    // OpenAI-compatible providers should not inherit Anthropic bearer-token
+    // sources like ANTHROPIC_AUTH_TOKEN. Their auth is provider-scoped.
+    return { source: 'none' as const, hasToken: false }
   }
 
   if (

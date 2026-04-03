@@ -306,6 +306,10 @@ export async function authStatus(opts: {
         : hasApiKeyEnvVar
           ? 'ANTHROPIC_API_KEY'
           : null
+    const resolvedApiKeySourceLabel =
+      resolvedApiKeySource === 'ANTHROPIC_API_KEY' && activeProvider.apiKeyEnv
+        ? activeProvider.apiKeyEnv
+        : resolvedApiKeySource
     const output: Record<string, string | boolean | null> = {
       loggedIn,
       authMethod,
@@ -315,8 +319,8 @@ export async function authStatus(opts: {
       output.providerId = activeProvider.id
       output.providerName = providerName
     }
-    if (resolvedApiKeySource) {
-      output.apiKeySource = resolvedApiKeySource
+    if (resolvedApiKeySourceLabel) {
+      output.apiKeySource = resolvedApiKeySourceLabel
     }
     if (authMethod === 'claude.ai') {
       output.email = oauthAccount?.emailAddress ?? null
