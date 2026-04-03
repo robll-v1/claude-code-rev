@@ -121,6 +121,41 @@ export const ProviderTypeSchema = lazySchema(() =>
   ]),
 )
 
+export const ProviderModelTransportSchema = lazySchema(() =>
+  z.enum(['chat-completions', 'responses']),
+)
+
+export const ProviderModelConfigSchema = lazySchema(() =>
+  z.union([
+    z.string(),
+    z
+      .object({
+        id: z.string().optional(),
+        model: z.string().optional(),
+        value: z.string().optional(),
+        name: z.string().optional(),
+        label: z.string().optional(),
+        description: z.string().optional(),
+        transport: ProviderModelTransportSchema().optional(),
+        supportsTools: z.boolean().optional(),
+        supportsStreaming: z.boolean().optional(),
+      })
+      .refine(
+        data =>
+          count(
+            [data.id, data.model, data.value, data.name].map(
+              value => typeof value === 'string' && value.length > 0,
+            ),
+            Boolean,
+          ) >= 1,
+        {
+          message:
+            'Provider model object must include at least one of id, model, value, or name',
+        },
+      ),
+  ]),
+)
+
 export const ProviderConfigSchema = lazySchema(() =>
   z.object({
     type: ProviderTypeSchema().optional(),
@@ -129,7 +164,7 @@ export const ProviderConfigSchema = lazySchema(() =>
     apiKeyEnv: z.string().optional(),
     authTokenEnv: z.string().optional(),
     defaultModel: z.string().optional(),
-    models: z.array(z.string()).optional(),
+    models: z.array(ProviderModelConfigSchema()).optional(),
     smallFastModel: z.string().optional(),
     region: z.string().optional(),
     projectId: z.string().optional(),
@@ -1137,6 +1172,9 @@ export type AllowedMcpServerEntry = z.infer<
 >
 export type DeniedMcpServerEntry = z.infer<
   ReturnType<typeof DeniedMcpServerEntrySchema>
+>
+export type ProviderModelConfig = z.infer<
+  ReturnType<typeof ProviderModelConfigSchema>
 >
 export type ProviderConfig = z.infer<ReturnType<typeof ProviderConfigSchema>>
 export type SettingsJson = z.infer<ReturnType<typeof SettingsSchema>>

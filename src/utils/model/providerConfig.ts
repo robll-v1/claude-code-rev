@@ -2,7 +2,21 @@ import { getDefaultVertexRegion, getAWSRegion, isEnvTruthy } from '../envUtils.j
 import { getGitHubCopilotApiUrl } from '../github/copilotApi.js'
 import { getGitHubAuthToken } from '../github/ghAuthToken.js'
 import { getInitialSettings } from '../settings/settings.js'
-import type { ProviderConfig } from '../settings/types.js'
+import type {
+  ProviderConfig,
+  ProviderModelConfig,
+} from '../settings/types.js'
+
+export type ProviderModelTransport = 'chat-completions' | 'responses'
+
+export type ResolvedProviderModelConfig = {
+  id: string
+  label: string
+  description?: string
+  transport?: ProviderModelTransport
+  supportsTools?: boolean
+  supportsStreaming?: boolean
+}
 
 export type ConfiguredProviderType =
   | 'firstParty'
@@ -21,7 +35,7 @@ export type ConfiguredProvider = {
   apiKeyEnv?: string
   authTokenEnv?: string
   defaultModel?: string
-  models?: string[]
+  models?: ProviderModelConfig[]
   smallFastModel?: string
   region?: string
   projectId?: string
@@ -36,7 +50,7 @@ type ActiveProviderConfig = {
   apiKeyEnv?: string
   authTokenEnv?: string
   defaultModel?: string
-  models?: string[]
+  models?: ProviderModelConfig[]
   smallFastModel?: string
   region?: string
   projectId?: string
@@ -94,10 +108,31 @@ const BUILTIN_PROVIDER_CONFIGS: Record<
     authTokenEnv: 'GITHUB_MODELS_TOKEN',
     defaultModel: 'openai/gpt-4.1',
     models: [
-      'openai/gpt-4.1',
-      'openai/gpt-4.1-mini',
-      'anthropic/claude-3.7-sonnet',
-      'meta/Llama-3.3-70B-Instruct',
+      {
+        id: 'openai/gpt-4.1',
+        label: 'GPT-4.1',
+        description: 'GitHub Models chat/completions model',
+        transport: 'chat-completions',
+      },
+      {
+        id: 'openai/gpt-4.1-mini',
+        label: 'GPT-4.1 mini',
+        description: 'GitHub Models chat/completions model',
+        transport: 'chat-completions',
+      },
+      {
+        id: 'anthropic/claude-3.7-sonnet',
+        label: 'Claude 3.7 Sonnet',
+        description: 'GitHub Models chat/completions model',
+        transport: 'chat-completions',
+        supportsTools: true,
+      },
+      {
+        id: 'meta/Llama-3.3-70B-Instruct',
+        label: 'Llama 3.3 70B Instruct',
+        description: 'GitHub Models chat/completions model',
+        transport: 'chat-completions',
+      },
     ],
   },
   'github-copilot': {
@@ -107,14 +142,89 @@ const BUILTIN_PROVIDER_CONFIGS: Record<
     defaultModel: 'claude-sonnet-4.6',
     smallFastModel: 'claude-haiku-4.5',
     models: [
-      'claude-sonnet-4.6',
-      'claude-opus-4.6',
-      'claude-haiku-4.5',
-      'claude-sonnet-4.5',
-      'claude-opus-4.5',
-      'claude-sonnet-4',
+      {
+        id: 'claude-sonnet-4.6',
+        label: 'Claude Sonnet 4.6',
+        description: 'Validated Copilot Claude model',
+        transport: 'chat-completions',
+        supportsTools: true,
+        supportsStreaming: true,
+      },
+      {
+        id: 'claude-opus-4.6',
+        label: 'Claude Opus 4.6',
+        description: 'Validated Copilot Claude model',
+        transport: 'chat-completions',
+        supportsTools: true,
+        supportsStreaming: true,
+      },
+      {
+        id: 'claude-haiku-4.5',
+        label: 'Claude Haiku 4.5',
+        description: 'Validated Copilot Claude model',
+        transport: 'chat-completions',
+        supportsTools: true,
+        supportsStreaming: true,
+      },
+      {
+        id: 'claude-sonnet-4.5',
+        label: 'Claude Sonnet 4.5',
+        description: 'Validated Copilot Claude model',
+        transport: 'chat-completions',
+        supportsTools: true,
+        supportsStreaming: true,
+      },
+      {
+        id: 'claude-opus-4.5',
+        label: 'Claude Opus 4.5',
+        description: 'Validated Copilot Claude model',
+        transport: 'chat-completions',
+        supportsTools: true,
+        supportsStreaming: true,
+      },
+      {
+        id: 'claude-sonnet-4',
+        label: 'Claude Sonnet 4',
+        description: 'Validated Copilot Claude model',
+        transport: 'chat-completions',
+        supportsTools: true,
+        supportsStreaming: true,
+      },
     ],
   },
+}
+
+function getProviderModelId(model: ProviderModelConfig): string | undefined {
+  if (typeof model === 'string') {
+    return model
+  }
+
+  return model.id ?? model.model ?? model.value ?? model.name
+}
+
+function normalizeProviderModel(
+  model: ProviderModelConfig,
+): ResolvedProviderModelConfig | undefined {
+  const id = getProviderModelId(model)
+  if (!id) {
+    return undefined
+  }
+
+  if (typeof model === 'string') {
+    return {
+      id,
+      label: id,
+    }
+  }
+
+  return {
+    id,
+    label: model.label ?? id,
+    description: model.description,
+    transport: model.transport,
+    supportsTools: model.supportsTools,
+    supportsStreaming: model.supportsStreaming,
+  }
 }
 
 function getEnvSelectedProviderId(): 'bedrock' | 'vertex' | 'foundry' | undefined {
@@ -323,7 +433,8 @@ export function getSuggestedModelForProvider(
   if (
     currentModel !== undefined &&
     currentModel !== null &&
-    (!provider.models || provider.models.includes(currentModel))
+    (!provider.models ||
+      provider.models.some(model => getProviderModelId(model) === currentModel))
   ) {
     return currentModel
   }
@@ -352,7 +463,7 @@ export function getConfiguredAnthropicBaseUrl(): string | undefined {
     : undefined
 }
 
-export function getConfiguredCustomModels(): string[] | undefined {
+export function getConfiguredCustomModels(): ProviderModelConfig[] | undefined {
   const configuredModels = getActiveProviderConfig().models
   if (configuredModels && configuredModels.length > 0) {
     return configuredModels
@@ -361,6 +472,76 @@ export function getConfiguredCustomModels(): string[] | undefined {
   return process.env.ANTHROPIC_CUSTOM_MODEL_OPTION
     ? [process.env.ANTHROPIC_CUSTOM_MODEL_OPTION]
     : undefined
+}
+
+export function getProviderModels(
+  providerId?: string,
+): ResolvedProviderModelConfig[] {
+  const models = (providerId
+    ? getProviderConfigById(providerId)
+    : getActiveProviderConfig()
+  ).models
+
+  if (!models?.length) {
+    return []
+  }
+
+  return models.flatMap(model => {
+    const normalized = normalizeProviderModel(model)
+    return normalized ? [normalized] : []
+  })
+}
+
+export function getProviderModelConfig(
+  modelId: string,
+  providerId?: string,
+): ResolvedProviderModelConfig | undefined {
+  return getProviderModels(providerId).find(model => model.id === modelId)
+}
+
+export function getProviderModelConfigFromList(
+  models: ProviderModelConfig[] | undefined,
+  modelId: string,
+): ResolvedProviderModelConfig | undefined {
+  return (models ?? []).flatMap(model => {
+    const normalized = normalizeProviderModel(model)
+    return normalized ? [normalized] : []
+  }).find(model => model.id === modelId)
+}
+
+export function getProviderModelTransportFromList(
+  models: ProviderModelConfig[] | undefined,
+  modelId: string,
+  providerType: ConfiguredProviderType,
+): ProviderModelTransport {
+  const configuredTransport = getProviderModelConfigFromList(models, modelId)?.transport
+  if (configuredTransport) {
+    return configuredTransport
+  }
+
+  if (
+    providerType === 'github-copilot' &&
+    /^(gpt-5|gpt-5\.|o1|o3|o4)/i.test(modelId)
+  ) {
+    return 'responses'
+  }
+
+  return 'chat-completions'
+}
+
+export function getProviderModelTransport(
+  modelId: string,
+  providerId?: string,
+  providerType?: ConfiguredProviderType,
+): ProviderModelTransport {
+  const effectiveProvider = providerId
+    ? getProviderConfigById(providerId)
+    : getActiveProviderConfig()
+  return getProviderModelTransportFromList(
+    effectiveProvider.models,
+    modelId,
+    providerType ?? effectiveProvider.type,
+  )
 }
 
 export function getConfiguredProviderApiKey(): string | undefined {

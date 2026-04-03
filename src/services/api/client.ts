@@ -176,6 +176,7 @@ export async function getAnthropicClient({
 
     return createOpenAICompatibleClient({
       providerType: activeProvider.type,
+      providerModels: activeProvider.models,
       baseURL: activeProvider.baseURL,
       apiKey: authToken,
       authToken,
